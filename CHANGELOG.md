@@ -2,6 +2,10 @@
 
 All notable changes to the "dcrypt" extension will be documented in this file.
 
+## [4.3.0]
+
+- Use `CustomTextEditorProvider` for the editor.
+
 ## [v4.1.1]
 
 - Update icon.
