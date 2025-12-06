@@ -2,6 +2,10 @@
 
 All notable changes to the "dcrypt" extension will be documented in this file.
 
+## [v4.1.2]
+
+- Patch vulnerabilities in `glob` and `js-yaml` packages.
+
 ## [v4.1.1]
 
 - Update icon.
