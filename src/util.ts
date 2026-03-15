@@ -26,3 +26,18 @@ export function getPasswordKey(uri: vscode.Uri) {
 
   return [key, path.basename(key)];
 }
+
+export function isGpgKeyMode(): boolean {
+  return (
+    vscode.workspace
+      .getConfiguration("dcrypt")
+      .get<boolean>("useGpgKey") ?? false
+  );
+}
+
+export function getGpgConfig(): { gpgKeyId: string; gpgPath: string } {
+  const config = vscode.workspace.getConfiguration("dcrypt");
+  const gpgKeyId = config.get<string>("gpgKeyId") ?? "";
+  const gpgPath = config.get<string>("gpgPath") ?? "gpg";
+  return { gpgKeyId, gpgPath };
+}
