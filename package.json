@@ -2,7 +2,7 @@
   "name": "dcrypt",
   "displayName": "DCrypt - OpenPGP Editor",
   "description": "In-memory OpenPGP Editor for VSCode",
-  "version": "4.1.2",
+  "version": "4.2.0",
   "engines": {
     "vscode": "^1.98.0"
   },

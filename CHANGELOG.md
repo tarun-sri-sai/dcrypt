@@ -2,6 +2,11 @@
 
 All notable changes to the "dcrypt" extension will be documented in this file.
 
+## [v4.2.0]
+
+- Adds `dcrypt.useGpgKey` to allow GPG key encryption using the `gpg` command available on the system.
+- All public releases will now use **even** minor version numbers.
+
 ## [v4.1.2]
 
 - Patch vulnerabilities in `glob` and `js-yaml` packages.
