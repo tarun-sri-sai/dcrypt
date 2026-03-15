@@ -32,7 +32,7 @@ export async function gpgDecrypt(
   ciphertext: Buffer,
   gpgPath: string,
 ): Promise<string> {
-  const { stdout } = await run(gpgPath, ["--decrypt", "--batch", "--yes"], ciphertext);
+  const { stdout } = await run(gpgPath, ["--decrypt", "--yes"], ciphertext);
   return stdout;
 }
 
