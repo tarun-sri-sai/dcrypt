@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as util from "./util.js";
 import * as openpgp from "openpgp";
+import * as gpg from "./gpg.js";
 
 export class DcryptEditorProvider
   implements vscode.CustomEditorProvider<vscode.CustomDocument>
@@ -36,36 +37,79 @@ export class DcryptEditorProvider
   ): Promise<void> {
     const uri = document.uri;
     const fileContent = await vscode.workspace.fs.readFile(uri);
+    const useGpg = util.isGpgKeyMode();
 
-    const [passwordStoreKey, displayName] = util.getPasswordKey(uri);
-    let passwords = this.passwordStore.get(passwordStoreKey) ?? [""];
-    if (!passwords[0]) {
-      passwords = [(await this.promptForPassword(displayName)) ?? ""];
-      if (!passwords[0]) {
-        vscode.window.showErrorMessage("No password was provided");
+    let decryptedContent = "";
+    let passwords: string[] = [];
+    let gpgKeyId = "";
+    let gpgPath = "gpg";
+
+    if (useGpg) {
+      const gpgConfig = util.getGpgConfig();
+      gpgKeyId = gpgConfig.gpgKeyId;
+      gpgPath = gpgConfig.gpgPath;
+
+      if (!gpgKeyId) {
+        vscode.window.showErrorMessage(
+          "GPG key ID is required. Set \"dcrypt.gpgKeyId\" in your settings.",
+        );
         setImmediate(() => webviewPanel.dispose());
         return;
       }
-      this.passwordStore.set(passwordStoreKey, passwords);
-    }
 
-    let decryptedContent = "";
-
-    if (fileContent.length > 0) {
       try {
-        const armoredMessage = new TextDecoder().decode(fileContent);
-        decryptedContent = (
-          await openpgp.decrypt({
-            message: await openpgp.readMessage({ armoredMessage }),
-            passwords,
-            format: "utf8",
-          })
-        ).data;
-      } catch (error: any) {
-        vscode.window.showErrorMessage("Failed to decrypt file");
-        this.passwordStore.delete(passwordStoreKey);
+        await gpg.gpgVerifyInstalled(gpgPath);
+      } catch {
+        vscode.window.showErrorMessage(
+          `GPG is not installed or not found at "${gpgPath}". Install GPG or set "dcrypt.gpgPath" to the correct path.`,
+        );
         setImmediate(() => webviewPanel.dispose());
         return;
+      }
+
+      if (fileContent.length > 0) {
+        try {
+          decryptedContent = await gpg.gpgDecrypt(
+            Buffer.from(fileContent),
+            gpgPath,
+          );
+        } catch (error: any) {
+          vscode.window.showErrorMessage(
+            `GPG decryption failed: ${error.message}`,
+          );
+          setImmediate(() => webviewPanel.dispose());
+          return;
+        }
+      }
+    } else {
+      const [passwordStoreKey, displayName] = util.getPasswordKey(uri);
+      passwords = this.passwordStore.get(passwordStoreKey) ?? [""];
+      if (!passwords[0]) {
+        passwords = [(await this.promptForPassword(displayName)) ?? ""];
+        if (!passwords[0]) {
+          vscode.window.showErrorMessage("No password was provided");
+          setImmediate(() => webviewPanel.dispose());
+          return;
+        }
+        this.passwordStore.set(passwordStoreKey, passwords);
+      }
+
+      if (fileContent.length > 0) {
+        try {
+          const armoredMessage = new TextDecoder().decode(fileContent);
+          decryptedContent = (
+            await openpgp.decrypt({
+              message: await openpgp.readMessage({ armoredMessage }),
+              passwords,
+              format: "utf8",
+            })
+          ).data;
+        } catch (error: any) {
+          vscode.window.showErrorMessage("Failed to decrypt file");
+          this.passwordStore.delete(passwordStoreKey);
+          setImmediate(() => webviewPanel.dispose());
+          return;
+        }
       }
     }
 
@@ -85,7 +129,11 @@ export class DcryptEditorProvider
             });
             break;
           case "save":
-            await this.saveFile(uri, message.text, passwords);
+            if (useGpg) {
+              await this.saveFileGpg(uri, message.text, gpgKeyId, gpgPath);
+            } else {
+              await this.saveFile(uri, message.text, passwords);
+            }
             break;
         }
       },
@@ -126,6 +174,26 @@ export class DcryptEditorProvider
     } catch (error: any) {
       vscode.window.showErrorMessage(
         `Failed to save encrypted file: ${error.message}`,
+      );
+    }
+  }
+
+  private async saveFileGpg(
+    uri: vscode.Uri,
+    text: string,
+    recipient: string,
+    gpgPath: string,
+  ): Promise<void> {
+    try {
+      const armoredMessage = await gpg.gpgEncrypt(text, recipient, gpgPath);
+
+      await vscode.workspace.fs.writeFile(
+        uri,
+        new TextEncoder().encode(armoredMessage),
+      );
+    } catch (error: any) {
+      vscode.window.showErrorMessage(
+        `GPG encryption failed: ${error.message}`,
       );
     }
   }

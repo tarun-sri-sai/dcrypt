@@ -34,6 +34,21 @@
           "type": "boolean",
           "default": false,
           "description": "If enabled, the extension will prompt for a password when opening any `.pgp` or `.asc` file for the first time. If disabled, it will ask for one password for the user's session (which is just the name of your home directory)."
+        },
+        "dcrypt.useGpgKey": {
+          "type": "boolean",
+          "default": false,
+          "description": "If enabled, the extension will use the GPG CLI for public-key encryption and decryption instead of symmetric passphrase-based encryption via OpenPGP.js. Requires GPG to be installed and the key to be in your keyring."
+        },
+        "dcrypt.gpgKeyId": {
+          "type": "string",
+          "default": "",
+          "description": "The GPG key identifier (fingerprint, key ID, or email) used as the recipient for encryption. The corresponding private key must be in your GPG keyring for decryption. Required when `dcrypt.useGpgKey` is enabled."
+        },
+        "dcrypt.gpgPath": {
+          "type": "string",
+          "default": "gpg",
+          "description": "Path to the GPG binary. Override this if `gpg` is not on your system PATH."
         }
       }
     }
