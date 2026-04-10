@@ -2,6 +2,10 @@
 
 All notable changes to the "dcrypt" extension will be documented in this file.
 
+## [v4.2.1]
+
+- Patch vulnerabilities in `minimatch`, `flatted`, and `picomatch` packages.
+
 ## [v4.2.0]
 
 - Adds `dcrypt.useGpgKey` to allow GPG key encryption using the `gpg` command available on the system.
