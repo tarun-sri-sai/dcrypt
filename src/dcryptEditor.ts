@@ -2,24 +2,26 @@ import * as vscode from "vscode";
 import * as util from "./util.js";
 import * as openpgp from "openpgp";
 import * as gpg from "./gpg.js";
+import { createHash } from "crypto";
 
-export class DcryptEditorProvider
-  implements vscode.CustomEditorProvider<vscode.CustomDocument>
-{
+export class DcryptEditorProvider implements vscode.CustomEditorProvider<vscode.CustomDocument> {
   public readonly onDidChangeCustomDocument: vscode.Event<
     vscode.CustomDocumentEditEvent<vscode.CustomDocument>
   > = new vscode.EventEmitter<
     vscode.CustomDocumentEditEvent<vscode.CustomDocument>
   >().event;
   private readonly passwordStore: Map<string, string[]>;
+  private readonly hashStore: Map<string, Buffer> = new Map();
   private readonly context: vscode.ExtensionContext;
 
   constructor(
     context: vscode.ExtensionContext,
     passwordStore: Map<string, string[]>,
+    hashStore: Map<string, Buffer>,
   ) {
     this.context = context;
     this.passwordStore = passwordStore;
+    this.hashStore = hashStore;
   }
 
   async openCustomDocument(
@@ -73,6 +75,10 @@ export class DcryptEditorProvider
             Buffer.from(fileContent),
             gpgPath,
           );
+          this.hashStore.set(
+            uri.toString(),
+            createHash("sha256").update(decryptedContent).digest(),
+          );
         } catch (error: any) {
           vscode.window.showErrorMessage(
             `GPG decryption failed: ${error.message}`,
@@ -80,6 +86,11 @@ export class DcryptEditorProvider
           setImmediate(() => webviewPanel.dispose());
           return;
         }
+      } else {
+        this.hashStore.set(
+          uri.toString(),
+          createHash("sha256").update("").digest(),
+        );
       }
     } else {
       const [passwordStoreKey, displayName] = util.getPasswordKey(uri);
@@ -104,12 +115,21 @@ export class DcryptEditorProvider
               format: "utf8",
             })
           ).data;
+          this.hashStore.set(
+            uri.toString(),
+            createHash("sha256").update(decryptedContent).digest(),
+          );
         } catch (error: any) {
           vscode.window.showErrorMessage("Failed to decrypt file");
           this.passwordStore.delete(passwordStoreKey);
           setImmediate(() => webviewPanel.dispose());
           return;
         }
+      } else {
+        this.hashStore.set(
+          uri.toString(),
+          createHash("sha256").update("").digest(),
+        );
       }
     }
 
@@ -161,6 +181,13 @@ export class DcryptEditorProvider
     passwords: string[],
   ): Promise<void> {
     try {
+      const currentHash = createHash("sha256").update(text).digest();
+      const storedHash = this.hashStore.get(uri.toString());
+
+      if (storedHash && currentHash.equals(storedHash)) {
+        return;
+      }
+
       const armoredMessage = await openpgp.encrypt({
         message: await openpgp.createMessage({ text }),
         passwords,
@@ -171,6 +198,8 @@ export class DcryptEditorProvider
         uri,
         new TextEncoder().encode(armoredMessage),
       );
+
+      this.hashStore.set(uri.toString(), currentHash);
     } catch (error: any) {
       vscode.window.showErrorMessage(
         `Failed to save encrypted file: ${error.message}`,
@@ -184,6 +213,13 @@ export class DcryptEditorProvider
     recipient: string,
     gpgPath: string,
   ): Promise<void> {
+    const currentHash = createHash("sha256").update(text).digest();
+    const storedHash = this.hashStore.get(uri.toString());
+
+    if (storedHash && currentHash.equals(storedHash)) {
+      return;
+    }
+
     try {
       const armoredMessage = await gpg.gpgEncrypt(text, recipient, gpgPath);
 
@@ -191,6 +227,8 @@ export class DcryptEditorProvider
         uri,
         new TextEncoder().encode(armoredMessage),
       );
+
+      this.hashStore.set(uri.toString(), currentHash);
     } catch (error: any) {
       vscode.window.showErrorMessage(
         `GPG encryption failed: ${error.message}`,
