@@ -98,20 +98,13 @@
           },
         );
 
-        let saveTimeout = null;
         editor.onDidChangeModelContent(() => {
-          if (saveTimeout) {
-            clearTimeout(saveTimeout);
-          }
+          const content = editor.getValue();
 
-          saveTimeout = setTimeout(() => {
-            const content = editor.getValue();
-
-            vscode.postMessage({
-              command: "save",
-              text: content,
-            });
-          }, 1000);
+          vscode.postMessage({
+            command: "contentChanged",
+            text: content,
+          });
         });
       });
     };

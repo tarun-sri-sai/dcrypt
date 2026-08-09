@@ -5,13 +5,24 @@ import * as gpg from "./gpg.js";
 import { createHash } from "crypto";
 
 export class DcryptEditorProvider implements vscode.CustomEditorProvider<vscode.CustomDocument> {
+  private readonly onDidChangeCustomDocumentEmitter = new vscode.EventEmitter<
+    vscode.CustomDocumentContentChangeEvent<vscode.CustomDocument>
+  >();
   public readonly onDidChangeCustomDocument: vscode.Event<
-    vscode.CustomDocumentEditEvent<vscode.CustomDocument>
-  > = new vscode.EventEmitter<
-    vscode.CustomDocumentEditEvent<vscode.CustomDocument>
-  >().event;
+    vscode.CustomDocumentContentChangeEvent<vscode.CustomDocument>
+  > = this.onDidChangeCustomDocumentEmitter.event;
   private readonly passwordStore: Map<string, string[]>;
   private readonly hashStore: Map<string, Buffer> = new Map();
+  private readonly documentState = new Map<
+    string,
+    {
+      text: string;
+      useGpg: boolean;
+      passwords: string[];
+      gpgKeyId: string;
+      gpgPath: string;
+    }
+  >();
   private readonly context: vscode.ExtensionContext;
 
   constructor(
@@ -139,6 +150,14 @@ export class DcryptEditorProvider implements vscode.CustomEditorProvider<vscode.
 
     webviewPanel.webview.html = this.getWebviewContent(webviewPanel.webview);
 
+    this.documentState.set(uri.toString(), {
+      text: decryptedContent,
+      useGpg,
+      passwords,
+      gpgKeyId,
+      gpgPath,
+    });
+
     const messageListener = webviewPanel.webview.onDidReceiveMessage(
       async (message) => {
         switch (message.command) {
@@ -148,13 +167,15 @@ export class DcryptEditorProvider implements vscode.CustomEditorProvider<vscode.
               content: decryptedContent,
             });
             break;
-          case "save":
-            if (useGpg) {
-              await this.saveFileGpg(uri, message.text, gpgKeyId, gpgPath);
-            } else {
-              await this.saveFile(uri, message.text, passwords);
+          case "contentChanged": {
+            const existing = this.documentState.get(uri.toString());
+            if (existing) {
+              existing.text = message.text;
+              this.documentState.set(uri.toString(), existing);
+              this.onDidChangeCustomDocumentEmitter.fire({ document });
             }
             break;
+          }
         }
       },
     );
@@ -266,11 +287,22 @@ export class DcryptEditorProvider implements vscode.CustomEditorProvider<vscode.
     `;
   }
 
-  public saveCustomDocument(
-    _document: vscode.CustomDocument,
+  public async saveCustomDocument(
+    document: vscode.CustomDocument,
     _cancellation: vscode.CancellationToken,
   ): Promise<void> {
-    return Promise.resolve();
+    const uri = document.uri;
+    const state = this.documentState.get(uri.toString());
+
+    if (!state) {
+      return;
+    }
+
+    if (state.useGpg) {
+      await this.saveFileGpg(uri, state.text, state.gpgKeyId, state.gpgPath);
+    } else {
+      await this.saveFile(uri, state.text, state.passwords);
+    }
   }
 
   public saveCustomDocumentAs(
