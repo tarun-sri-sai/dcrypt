@@ -1,6 +1,11 @@
 # Change Log
 
-All notable changes to the "dcrypt" extension will be documented in this file.
+All notable changes to the `dcrypt` extension will be documented in this file.
+
+## [v4.2.2]
+
+- No longer re-encrypts files not modified since last save.
+- Follows VS Code save configuration instead of the hard-coded 1-second auto save.
 
 ## [v4.2.1]
 
