@@ -53,7 +53,7 @@ export class DcryptEditorProvider implements vscode.CustomEditorProvider<vscode.
 
       if (!gpgKeyId) {
         vscode.window.showErrorMessage(
-          "GPG key ID is required. Set \"dcrypt.gpgKeyId\" in your settings.",
+          'GPG key ID is required. Set "dcrypt.gpgKeyId" in your settings.',
         );
         setImmediate(() => webviewPanel.dispose());
         return;
@@ -230,9 +230,7 @@ export class DcryptEditorProvider implements vscode.CustomEditorProvider<vscode.
 
       this.hashStore.set(uri.toString(), currentHash);
     } catch (error: any) {
-      vscode.window.showErrorMessage(
-        `GPG encryption failed: ${error.message}`,
-      );
+      vscode.window.showErrorMessage(`GPG encryption failed: ${error.message}`);
     }
   }
 

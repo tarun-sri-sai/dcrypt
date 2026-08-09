@@ -29,9 +29,8 @@ export function getPasswordKey(uri: vscode.Uri) {
 
 export function isGpgKeyMode(): boolean {
   return (
-    vscode.workspace
-      .getConfiguration("dcrypt")
-      .get<boolean>("useGpgKey") ?? false
+    vscode.workspace.getConfiguration("dcrypt").get<boolean>("useGpgKey") ??
+    false
   );
 }
 
